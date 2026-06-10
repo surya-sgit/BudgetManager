@@ -9,6 +9,7 @@ import androidx.navigation.navArgument
 import com.example.budgetmanager.feature.budget.presentation.BudgetScreen
 import com.example.budgetmanager.feature.creditcards.presentation.CreditCardScreen
 import com.example.budgetmanager.feature.dashboard.presentation.DashboardScreen
+import com.example.budgetmanager.feature.expensesplit.presentation.ExpenseSplitScreen
 import com.example.budgetmanager.feature.transactions.presentation.detail.TransactionDetailScreen
 import com.example.budgetmanager.feature.transactions.presentation.list.TransactionListScreen
 
@@ -20,6 +21,7 @@ sealed class Screen(val route: String) {
     }
     object Budget : Screen("budget")
     object CreditCards : Screen("credit_cards")
+    object ExpenseSplit : Screen("expense_split")
 }
 
 @Composable
@@ -58,6 +60,9 @@ fun NavGraph(navController: NavHostController) {
         }
         composable(Screen.CreditCards.route) {
             CreditCardScreen()
+        }
+        composable(Screen.ExpenseSplit.route) {
+            ExpenseSplitScreen()
         }
     }
 }

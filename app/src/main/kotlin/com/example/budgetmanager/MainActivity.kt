@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.*
@@ -35,7 +36,8 @@ class MainActivity : ComponentActivity() {
                     Screen.Dashboard,
                     Screen.Transactions,
                     Screen.Budget,
-                    Screen.CreditCards
+                    Screen.CreditCards,
+                    Screen.ExpenseSplit
                 )
                 Scaffold(
                     bottomBar = {
@@ -51,6 +53,7 @@ class MainActivity : ComponentActivity() {
                                                 Screen.Transactions -> Icons.Default.List
                                                 Screen.Budget -> Icons.Default.DateRange
                                                 Screen.CreditCards -> Icons.Default.ShoppingCart
+                                                Screen.ExpenseSplit -> Icons.Default.Person
                                                 else -> Icons.Default.Home
                                             }, 
                                             contentDescription = null

@@ -12,9 +12,10 @@ import com.example.budgetmanager.core.database.entities.*
         AccountEntity::class,
         CreditCardEntity::class,
         BudgetEntity::class,
-        ExpenseSplitEntity::class
+        ExpenseSplitEntity::class,
+        SplitParticipantEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class BudgetDatabase : RoomDatabase() {
