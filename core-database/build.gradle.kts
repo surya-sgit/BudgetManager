@@ -36,7 +36,7 @@ dependencies {
     kapt(libs.androidx.room.compiler)
     implementation(libs.hilt.android)
     kapt(libs.hilt.compiler)
-    implementation(libs.sqlcipher)
+    implementation("net.zetetic:android-database-sqlcipher:4.5.4")
     implementation(libs.androidx.sqlite.ktx)
     implementation(project(":core-common"))
 }

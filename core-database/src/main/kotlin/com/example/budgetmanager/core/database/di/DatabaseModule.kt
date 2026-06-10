@@ -2,6 +2,7 @@ package com.example.budgetmanager.core.database.di
 
 import android.content.Context
 import androidx.room.Room
+import androidx.room.RoomDatabase
 import com.example.budgetmanager.core.database.BudgetDatabase
 import com.example.budgetmanager.core.database.dao.*
 import dagger.Module
