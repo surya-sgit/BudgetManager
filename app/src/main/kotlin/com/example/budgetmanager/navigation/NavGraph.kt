@@ -13,15 +13,15 @@ import com.example.budgetmanager.feature.expensesplit.presentation.ExpenseSplitS
 import com.example.budgetmanager.feature.transactions.presentation.detail.TransactionDetailScreen
 import com.example.budgetmanager.feature.transactions.presentation.list.TransactionListScreen
 
-sealed class Screen(val route: String) {
-    object Dashboard : Screen("dashboard")
-    object Transactions : Screen("transactions")
-    object TransactionDetail : Screen("transaction_detail/{transactionId}") {
+sealed class Screen(val route: String, val title: String) {
+    object Dashboard : Screen("dashboard", "Home")
+    object Transactions : Screen("transactions", "Trans")
+    object TransactionDetail : Screen("transaction_detail/{transactionId}", "Detail") {
         fun createRoute(id: Long) = "transaction_detail/$id"
     }
-    object Budget : Screen("budget")
-    object CreditCards : Screen("credit_cards")
-    object ExpenseSplit : Screen("expense_split")
+    object Budget : Screen("budget", "Budget")
+    object CreditCards : Screen("credit_cards", "Cards")
+    object ExpenseSplit : Screen("expense_split", "Splits")
 }
 
 @Composable

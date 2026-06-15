@@ -8,5 +8,5 @@ data class DashboardState(
     val recentTransactions: List<Transaction> = emptyList(),
     val isLoading: Boolean = false
 ) {
-    val netSavings: Double = totalIncome - totalExpense
+    val netSavings: Double get() = totalIncome - totalExpense
 }

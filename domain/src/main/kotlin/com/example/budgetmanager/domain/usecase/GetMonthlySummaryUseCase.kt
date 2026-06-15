@@ -20,8 +20,13 @@ class GetMonthlySummaryUseCase @Inject constructor(
         calendar.set(Calendar.HOUR_OF_DAY, 0)
         calendar.set(Calendar.MINUTE, 0)
         calendar.set(Calendar.SECOND, 0)
+        calendar.set(Calendar.MILLISECOND, 0)
         val startTime = calendar.timeInMillis
-        val endTime = System.currentTimeMillis()
+        
+        // Use a very large end time to ensure all future transactions in the current month are captured
+        // even if the ViewModel remains active for a long time.
+        calendar.add(Calendar.YEAR, 1)
+        val endTime = calendar.timeInMillis
 
         return combine(
             transactionRepository.getTotalIncome(startTime, endTime),

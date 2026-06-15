@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.provider.Telephony
+import android.util.Log
 import com.example.budgetmanager.data.sms.SmsProcessor
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -22,13 +23,22 @@ class SmsReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Telephony.Sms.Intents.SMS_RECEIVED_ACTION) {
+            val pendingResult = goAsync()
             val messages = Telephony.Sms.Intents.getMessagesFromIntent(intent)
-            for (message in messages) {
-                val body = message.displayMessageBody
-                val timestamp = message.timestampMillis
-                
-                scope.launch {
-                    smsProcessor.processSms(body, timestamp)
+            
+            scope.launch {
+                try {
+                    for (message in messages) {
+                        val sender = message.displayOriginatingAddress ?: "Unknown"
+                        val body = message.displayMessageBody
+                        val timestamp = message.timestampMillis
+                        Log.d("BudgetDebug", "SmsReceiver: Processing message from $sender")
+                        smsProcessor.processSms(sender, body, timestamp)
+                    }
+                } catch (e: Exception) {
+                    Log.e("BudgetDebug", "SmsReceiver: Error processing SMS", e)
+                } finally {
+                    pendingResult.finish()
                 }
             }
         }

@@ -17,9 +17,9 @@ import java.util.*
 @HiltWorker
 class CreditCardReminderWorker @AssistedInject constructor(
     @Assisted context: Context,
-    @Assisted params: WorkerParameters,
+    @Assisted workerParams: WorkerParameters,
     private val repository: CreditCardRepository
-) : CoroutineWorker(context, params) {
+) : CoroutineWorker(context, workerParams) {
 
     override suspend fun doWork(): Result {
         val cards = repository.getAllCreditCards().first()
