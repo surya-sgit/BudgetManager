@@ -86,11 +86,17 @@ class MainActivity : ComponentActivity() {
                                     onClick = {
                                         if (currentDestination?.route != screen.route) {
                                             navController.navigate(screen.route) {
+                                                // Pop up to the start destination of the graph to
+                                                // avoid building up a large stack of destinations
+                                                // on the back stack as users select items
                                                 popUpTo(navController.graph.findStartDestination().id) {
-                                                    saveState = (screen.route != Screen.Dashboard.route)
+                                                    saveState = true
                                                 }
+                                                // Avoid multiple copies of the same destination when
+                                                // reselecting the same item
                                                 launchSingleTop = true
-                                                restoreState = (screen.route != Screen.Dashboard.route)
+                                                // Restore state when reselecting a previously selected item
+                                                restoreState = true
                                             }
                                         }
                                     }

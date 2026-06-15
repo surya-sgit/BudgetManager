@@ -32,9 +32,16 @@ class CalculateSmartBudgetUseCase @Inject constructor(
 
             transactionRepository.getTotalExpense(startTime, System.currentTimeMillis()).map { totalExpense ->
                 val remaining = totalBudget - totalExpense
+                
                 val calendar = Calendar.getInstance()
-                val currentDay = calendar.timeInMillis
-                val daysRemaining = ((endTime - currentDay) / (1000 * 60 * 60 * 24)).toInt().coerceAtLeast(1)
+                val today = calendar.apply {
+                    set(Calendar.HOUR_OF_DAY, 0)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }.timeInMillis
+                
+                val daysRemaining = ((endTime - today) / (1000 * 60 * 60 * 24)).toInt().coerceAtLeast(1)
                 
                 SmartBudgetState(
                     remainingBudget = remaining.coerceAtLeast(0.0),

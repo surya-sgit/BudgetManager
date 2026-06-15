@@ -20,11 +20,11 @@ class BankSmsParser : SmsParser {
      */
     private val patterns = listOf(
         // Pattern for "Rs. 500.00 Dr. from A/C ... to Merchant"
-        Pattern.compile("(?i)(?:rs|inr)\\.?\\s*([\\d,]+\\.?\\d{0,2})\\s*(Dr\\.|Cr\\.).*?(?:to|at)\\s*(.*?)(?:\\s|on|using|via|\\.|and)", Pattern.CASE_INSENSITIVE),
+        Pattern.compile("(?i)(?:rs|inr)\\.?\\s*([\\d,]+\\.?\\d{0,2})\\s*(Dr\\.|Cr\\.).*?(?:to|at)\\s*(.*?)(?:\\s+\\b(?:on|using|via|and|at|ref)\\b|\\s+\\d|\\.\$|\\. |$)", Pattern.CASE_INSENSITIVE),
         // Pattern for "debited for Rs 500 at Merchant"
-        Pattern.compile("(?i)(debited|spent|paid|credited|received).*?(?:rs|inr)\\.?\\s*([\\d,]+\\.?\\d{0,2}).*?(?:at|to|info:)\\s*(.*?)(?:\\s|on|using|via|\\.)", Pattern.CASE_INSENSITIVE),
+        Pattern.compile("(?i)(debited|spent|paid|credited|received).*?(?:rs|inr)\\.?\\s*([\\d,]+\\.?\\d{0,2}).*?(?:at|to|info:)\\s*(.*?)(?:\\s+\\b(?:on|using|via|at|ref)\\b|\\s+\\d|\\.\$|\\. |$)", Pattern.CASE_INSENSITIVE),
         // Pattern for "spent Rs. 500 on your card at Merchant"
-        Pattern.compile("(?i)(?:rs|inr)\\.?\\s*([\\d,]+\\.?\\d{0,2})\\s*(debited|spent|paid|credited|received).*?(?:at|to|info:)\\s*(.*?)(?:\\s|on|using|via|\\.)", Pattern.CASE_INSENSITIVE)
+        Pattern.compile("(?i)(?:rs|inr)\\.?\\s*([\\d,]+\\.?\\d{0,2})\\s*(debited|spent|paid|credited|received).*?(?:at|to|info:)\\s*(.*?)(?:\\s+\\b(?:on|using|via|at|ref)\\b|\\s+\\d|\\.\$|\\. |$)", Pattern.CASE_INSENSITIVE)
     )
 
     override fun parse(sender: String, smsBody: String, timestamp: Long): ParsedSmsTransaction? {

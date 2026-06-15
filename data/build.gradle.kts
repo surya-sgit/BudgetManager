@@ -45,4 +45,6 @@ dependencies {
     // AI Fallback
     implementation(libs.googleGenerativeai)
     implementation(libs.kotlinxSerializationJson)
+
+    testImplementation(libs.junit)
 }
