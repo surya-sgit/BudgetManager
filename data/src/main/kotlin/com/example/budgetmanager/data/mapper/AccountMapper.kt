@@ -3,6 +3,7 @@ package com.example.budgetmanager.data.mapper
 import com.example.budgetmanager.core.database.entities.AccountEntity
 import com.example.budgetmanager.domain.model.Account
 import com.example.budgetmanager.domain.model.AccountType
+import com.example.budgetmanager.domain.model.PaymentCycle
 
 fun AccountEntity.toDomain(): Account {
     return Account(
@@ -10,7 +11,9 @@ fun AccountEntity.toDomain(): Account {
         name = name,
         bankName = bankName,
         accountLast4 = accountLast4,
-        accountType = AccountType.valueOf(accountType)
+        accountType = AccountType.valueOf(accountType),
+        salaryDate = salaryDate,
+        paymentCycle = PaymentCycle.valueOf(paymentCycle)
     )
 }
 
@@ -20,6 +23,8 @@ fun Account.toEntity(): AccountEntity {
         name = name,
         bankName = bankName,
         accountLast4 = accountLast4,
-        accountType = accountType.name
+        accountType = accountType.name,
+        salaryDate = salaryDate,
+        paymentCycle = paymentCycle.name
     )
 }

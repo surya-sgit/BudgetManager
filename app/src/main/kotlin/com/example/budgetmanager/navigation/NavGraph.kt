@@ -14,8 +14,8 @@ import com.example.budgetmanager.feature.transactions.presentation.detail.Transa
 import com.example.budgetmanager.feature.transactions.presentation.list.TransactionListScreen
 
 sealed class Screen(val route: String, val title: String) {
-    object Dashboard : Screen("dashboard", "Home")
-    object Transactions : Screen("transactions", "Trans")
+    object Dashboard : Screen("dashboard", "Dashboard")
+    object Transactions : Screen("transactions", "Transactions")
     object TransactionDetail : Screen("transaction_detail/{transactionId}", "Detail") {
         fun createRoute(id: Long) = "transaction_detail/$id"
     }

@@ -15,7 +15,7 @@ import com.example.budgetmanager.core.database.entities.*
         ExpenseSplitEntity::class,
         SplitParticipantEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class BudgetDatabase : RoomDatabase() {

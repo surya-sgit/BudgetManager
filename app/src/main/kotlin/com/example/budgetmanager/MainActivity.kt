@@ -87,10 +87,10 @@ class MainActivity : ComponentActivity() {
                                         if (currentDestination?.route != screen.route) {
                                             navController.navigate(screen.route) {
                                                 popUpTo(navController.graph.findStartDestination().id) {
-                                                    saveState = true
+                                                    saveState = (screen.route != Screen.Dashboard.route)
                                                 }
                                                 launchSingleTop = true
-                                                restoreState = true
+                                                restoreState = (screen.route != Screen.Dashboard.route)
                                             }
                                         }
                                     }
