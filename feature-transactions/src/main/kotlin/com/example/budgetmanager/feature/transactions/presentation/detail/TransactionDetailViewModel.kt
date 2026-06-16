@@ -9,6 +9,7 @@ import com.example.budgetmanager.domain.model.ExpenseSplit
 import com.example.budgetmanager.domain.model.SplitParticipant
 import com.example.budgetmanager.domain.model.SplitStatus
 import com.example.budgetmanager.domain.model.Transaction
+import com.example.budgetmanager.domain.model.TransactionType
 import com.example.budgetmanager.domain.repository.CategoryRepository
 import com.example.budgetmanager.domain.repository.ExpenseSplitRepository
 import com.example.budgetmanager.domain.usecase.DeleteTransactionUseCase
@@ -119,12 +120,23 @@ class TransactionDetailViewModel @Inject constructor(
         }
     }
 
-    /** Toggles whether this transaction counts toward spending (e.g. mark a card-bill payment). */
-    fun setExcludeFromBudget(exclude: Boolean) {
+    /**
+     * Marks (or un-marks) this transaction as a credit-card bill payment. Marking converts it to
+     * an Expense (the card-side SMS reads as "credited", but paying a bill is never income) and
+     * excludes it from spending so it isn't double-counted.
+     */
+    fun markAsCardBillPayment(mark: Boolean) {
         val tx = _transaction.value ?: return
-        if (tx.excludeFromBudget == exclude) return
         viewModelScope.launch {
-            val updated = tx.copy(excludeFromBudget = exclude, userModified = true)
+            val updated = if (mark) {
+                tx.copy(
+                    transactionType = TransactionType.Expense,
+                    excludeFromBudget = true,
+                    userModified = true
+                )
+            } else {
+                tx.copy(excludeFromBudget = false, userModified = true)
+            }
             updateTransactionUseCase(updated)
             _transaction.value = updated
         }

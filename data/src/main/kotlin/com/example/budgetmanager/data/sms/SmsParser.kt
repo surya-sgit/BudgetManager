@@ -8,70 +8,92 @@ interface SmsParser {
     fun parse(sender: String, smsBody: String, timestamp: Long): ParsedSmsTransaction?
 }
 
+/**
+ * Parses bank transaction SMS. Key correctness rules:
+ *  - Bank SMS often carry TWO amounts: the transaction amount and the available balance/limit.
+ *    The balance clause ("Avl Limit: INR 4,86,618.18", "AvlBal:Rs914.53") is stripped first so it
+ *    can't be mistaken for the amount, and the FIRST currency amount is taken as the transaction.
+ *  - Type is inferred from debit/credit keywords (a message with both Dr & Cr is a debit/transfer).
+ *  - Merchant is the text after at/to/on/info:, skipping dates and pure numbers.
+ *
+ * Examples handled:
+ *  "INR 1,820.00 spent using ICICI Bank Card XX6001 on 05-May-26 on AMAZON PAY IN U. Avl Limit: INR 4,86,618.18."
+ *  "Alert: Your Acct XX1234 has been debited for Rs. 500.00 at AMAZON on 10-10-2023."
+ *  "Dear Customer, your Acct XX5678 is credited with INR 10,000.00 on 11-10-23. Info: SALARY."
+ */
 class BankSmsParser : SmsParser {
-    /**
-     * Regex Breakdown:
-     * 1. Amount: Matches 'Rs.' or 'INR' followed by digits and commas.
-     * 2. Type: Matches 'debited', 'spent', 'credited', etc.
-     * 3. Merchant: Matches text after 'at', 'to', or 'info:'.
-     * 
-     * Mock Test Case 1 (Debited): "Alert: Your Acct XX1234 has been debited for Rs. 500.00 at AMAZON on 10-10-2023."
-     * Mock Test Case 2 (Credited): "Dear Customer, your Acct XX5678 is credited with INR 10,000.00 on 11-10-23. Info: SALARY."
-     */
-    private val patterns = listOf(
-        // Pattern for "Rs. 500.00 Dr. from A/C ... to Merchant"
-        Pattern.compile("(?i)(?:rs|inr)\\.?\\s*([\\d,]+\\.?\\d{0,2})\\s*(Dr\\.|Cr\\.).*?(?:to|at)\\s*(.*?)(?:\\s+\\b(?:on|using|via|and|at|ref)\\b|\\s+\\d|\\.\$|\\. |$)", Pattern.CASE_INSENSITIVE),
-        // Pattern for "debited for Rs 500 at Merchant"
-        Pattern.compile("(?i)(debited|spent|paid|credited|received).*?(?:rs|inr)\\.?\\s*([\\d,]+\\.?\\d{0,2}).*?(?:at|to|info:)\\s*(.*?)(?:\\s+\\b(?:on|using|via|at|ref)\\b|\\s+\\d|\\.\$|\\. |$)", Pattern.CASE_INSENSITIVE),
-        // Pattern for "spent Rs. 500 on your card at Merchant"
-        Pattern.compile("(?i)(?:rs|inr)\\.?\\s*([\\d,]+\\.?\\d{0,2})\\s*(debited|spent|paid|credited|received).*?(?:at|to|info:)\\s*(.*?)(?:\\s+\\b(?:on|using|via|at|ref)\\b|\\s+\\d|\\.\$|\\. |$)", Pattern.CASE_INSENSITIVE)
+
+    private val debitWords = listOf("debited", "spent", "paid", "withdrawn", "purchase", "dr.", " dr ")
+    private val creditWords = listOf("credited", "received", "deposited", "refund", "cr.", " cr ")
+
+    // "Avl Limit: INR X", "AvlBal:Rs X", "Available Balance Rs X", "Bal: Rs X" …
+    private val balanceClause = Pattern.compile(
+        "(?i)(?:avl|aval|avbl|avlbl|available|clr|clear)?\\.?\\s*(?:bal|balance|limit|lmt)\\b[^\\d]{0,12}(?:rs|inr)\\.?\\s*[\\d,]+(?:\\.\\d{1,2})?"
+    )
+    private val amount = Pattern.compile("(?i)(?:rs|inr)\\.?\\s*([\\d,]+(?:\\.\\d{1,2})?)")
+    private val account = Pattern.compile(
+        "(?i)(?:acct|card|a/c|account|ending|xx)\\s*(?:no\\.?\\s*)?[xX*]{0,4}(\\d{4})\\b"
+    )
+    private val vpa = Pattern.compile("[A-Za-z0-9.\\-_]{2,}@[A-Za-z]{2,}")
+    private val merchantPrefix = Pattern.compile(
+        "(?i)\\b(?:at|to|on|info)\\b\\s*:?\\s*([A-Za-z0-9@.&'_\\- ]{2,40})"
+    )
+    private val connector = Regex("(?i)\\s+(?:on|using|via|ref|info|avl|avbl|bal|txn|dt|date|rrn|uti)\\b")
+    private val dateLike = Pattern.compile(
+        "(?i)\\b\\d{1,2}[-/](?:\\d{1,2}|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)(?:[-/]\\d{2,4})?\\b"
     )
 
     override fun parse(sender: String, smsBody: String, timestamp: Long): ParsedSmsTransaction? {
-        for (pattern in patterns) {
-            val matcher = pattern.matcher(smsBody)
-            if (matcher.find()) {
-                val group1 = matcher.group(1) ?: ""
-                val group2 = matcher.group(2) ?: ""
-                val group3 = matcher.group(3) ?: "Unknown Merchant"
+        // Remove the balance/limit clause so it isn't mistaken for the transaction amount.
+        val body = balanceClause.matcher(smsBody).replaceAll(" ")
+        val lower = body.lowercase()
 
-                val isGroup1Amount = group1.firstOrNull()?.isDigit() == true || group1.contains(",")
-                
-                val amountStr = if (isGroup1Amount) group1 else group2
-                val typeStr = if (isGroup1Amount) group2 else group1
-                val merchant = group3
+        val isDebit = debitWords.any { lower.contains(it) }
+        val isCredit = creditWords.any { lower.contains(it) }
+        if (!isDebit && !isCredit) return null // not a transaction (OTP, promo, etc.)
 
-                val amount = amountStr.replace(",", "").toDoubleOrNull() ?: continue
-                
-                val type = if (typeStr.contains("debited", ignoreCase = true) || 
-                               typeStr.contains("spent", ignoreCase = true) ||
-                               typeStr.contains("paid", ignoreCase = true) ||
-                               typeStr.contains("Dr.", ignoreCase = true)) {
-                    TransactionType.Expense
-                } else if (typeStr.contains("credited", ignoreCase = true) || 
-                           typeStr.contains("received", ignoreCase = true) ||
-                           typeStr.contains("Cr.", ignoreCase = true)) {
-                    TransactionType.Income
-                } else {
-                    TransactionType.Expense
-                }
+        // First currency amount = the transaction amount (balance already stripped).
+        val amountMatcher = amount.matcher(body)
+        if (!amountMatcher.find()) return null
+        val parsedAmount = amountMatcher.group(1)?.replace(",", "")?.toDoubleOrNull() ?: return null
+        if (parsedAmount <= 0.0) return null
 
-                // Extract last 4 digits of account/card — require keyword prefix to avoid matching amounts
-                val accountMatcher = Pattern.compile(
-                    "(?i)(?:acct|card|a/c|account|ending|xx)\\s*(?:no\\.?\\s*)?[xX*]{0,4}(\\d{4})\\b"
-                ).matcher(smsBody)
-                val accountLast4 = if (accountMatcher.find()) accountMatcher.group(1) ?: "0000" else "0000"
+        // A message with both Dr & Cr (e.g. transfer "Dr from A/C … Cr to merchant") is a debit.
+        val type = if (isCredit && !isDebit) TransactionType.Income else TransactionType.Expense
 
-                return ParsedSmsTransaction(
-                    amount = amount,
-                    transactionType = type,
-                    merchantName = merchant.trim(),
-                    accountLast4 = accountLast4,
-                    timestamp = timestamp,
-                    smsBody = smsBody
-                )
-            }
+        val accountMatcher = account.matcher(body)
+        val accountLast4 = if (accountMatcher.find()) accountMatcher.group(1) ?: "0000" else "0000"
+
+        return ParsedSmsTransaction(
+            amount = parsedAmount,
+            transactionType = type,
+            merchantName = extractMerchant(body),
+            accountLast4 = accountLast4,
+            timestamp = timestamp,
+            smsBody = smsBody
+        )
+    }
+
+    private fun extractMerchant(body: String): String {
+        // A UPI VPA handle is the strongest merchant signal.
+        vpa.matcher(body).let { if (it.find()) return it.group() }
+
+        // Otherwise take the best text after at/to/on/info:, skipping dates and numbers.
+        val matcher = merchantPrefix.matcher(body)
+        var best = ""
+        while (matcher.find()) {
+            var candidate = matcher.group(1)?.trim() ?: continue
+            candidate = candidate.split(connector).first().trim() // cut "AMAZON on 10-10" -> "AMAZON"
+            candidate = candidate.substringBefore(".").trim()
+            if (candidate.length < 2) continue
+            if (looksLikeDateOrNumber(candidate)) continue
+            best = candidate // keep the last good one (merchant usually follows the date)
         }
-        return null
+        return best.ifBlank { "Unknown Merchant" }
+    }
+
+    private fun looksLikeDateOrNumber(s: String): Boolean {
+        if (s.none { it.isLetter() }) return true
+        return dateLike.matcher(s).find()
     }
 }

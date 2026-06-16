@@ -44,7 +44,7 @@ fun AddTransactionScreen(
 
     val methodOptions = listOf(
         PaymentMethod.Cash, PaymentMethod.Upi, PaymentMethod.Card,
-        PaymentMethod.NetBanking, PaymentMethod.Wallet
+        PaymentMethod.DebitCard, PaymentMethod.NetBanking, PaymentMethod.Wallet
     )
     val dateLabel = remember(dateMillis) {
         SimpleDateFormat("d MMM yyyy", Locale.getDefault()).format(Date(dateMillis))

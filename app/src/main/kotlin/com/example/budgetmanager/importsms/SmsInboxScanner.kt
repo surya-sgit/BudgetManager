@@ -52,7 +52,8 @@ class SmsInboxScanner @Inject constructor(
                 val date = cursor.getLong(dateIdx)
                 scanned++
                 // Dedup by SMS hash inside the processor keeps re-scans idempotent.
-                if (smsProcessor.processSms(sender, body, date)) imported++
+                // useAi = false: a bulk inbox scan must not fire a burst of cloud-model calls.
+                if (smsProcessor.processSms(sender, body, date, useAi = false)) imported++
             }
         }
         ScanResult(messagesScanned = scanned, transactionsImported = imported)

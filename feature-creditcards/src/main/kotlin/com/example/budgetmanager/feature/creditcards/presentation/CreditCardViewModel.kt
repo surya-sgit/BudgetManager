@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.budgetmanager.domain.model.Account
 import com.example.budgetmanager.domain.model.CreditCard
-import com.example.budgetmanager.domain.model.PaymentMethod
 import com.example.budgetmanager.domain.model.Transaction
 import com.example.budgetmanager.domain.model.TransactionType
 import com.example.budgetmanager.domain.repository.AccountRepository
@@ -60,7 +59,7 @@ class CreditCardViewModel @Inject constructor(
             .filter {
                 it.transactionType == TransactionType.Expense &&
                     !it.excludeFromBudget &&
-                    it.paymentMethod == PaymentMethod.Card &&
+                    it.paymentMethod.isCreditCard &&
                     it.accountId in accountIds &&
                     it.timestamp >= cycleStart
             }

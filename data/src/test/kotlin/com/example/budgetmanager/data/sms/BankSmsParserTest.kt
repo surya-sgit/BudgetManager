@@ -46,6 +46,18 @@ class BankSmsParserTest {
     }
 
     @Test
+    fun `uses spend amount not available limit`() {
+        val sms = "INR 1,820.00 spent using ICICI Bank Card XX6001 on 05-May-26 on AMAZON PAY IN U. " +
+            "Avl Limit: INR 4,86,618.18. If not you, call 1800 2662/SMS BLOCK 6001 to 9215676766."
+        val result = parser.parse("ICICIB", sms, System.currentTimeMillis())
+
+        assertNotNull(result)
+        assertEquals(1820.0, result?.amount)   // NOT the 4,86,618.18 available limit
+        assertEquals(TransactionType.Expense, result?.transactionType)
+        assertEquals("6001", result?.accountLast4)
+    }
+
+    @Test
     fun `return null for non-transactional sms`() {
         val sms = "Your OTP for login is 123456. Do not share it with anyone."
         val result = parser.parse("VERIFY", sms, System.currentTimeMillis())

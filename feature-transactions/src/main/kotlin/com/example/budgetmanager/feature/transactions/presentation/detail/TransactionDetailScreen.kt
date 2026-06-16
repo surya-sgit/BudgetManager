@@ -155,14 +155,12 @@ fun TransactionDetailScreen(
                     onSelect = viewModel::setPaymentMethod
                 )
 
-                // Exclude from spending (card bill payment / transfer)
-                if (isExpense) {
-                    Spacer(Modifier.height(16.dp))
-                    ExcludeFromBudgetCard(
-                        excluded = tx.excludeFromBudget,
-                        onToggle = viewModel::setExcludeFromBudget
-                    )
-                }
+                // Mark as a credit-card bill payment — converts to expense + excludes from spending
+                Spacer(Modifier.height(16.dp))
+                BillPaymentCard(
+                    marked = tx.excludeFromBudget,
+                    onMark = viewModel::markAsCardBillPayment
+                )
 
                 // Split section — only meaningful for expenses
                 if (isExpense) {
@@ -401,8 +399,8 @@ private fun PaymentMethodSelectorCard(
     onSelect: (PaymentMethod) -> Unit
 ) {
     val options = listOf(
-        PaymentMethod.Card, PaymentMethod.Upi, PaymentMethod.NetBanking,
-        PaymentMethod.Wallet, PaymentMethod.Cash
+        PaymentMethod.Card, PaymentMethod.DebitCard, PaymentMethod.Upi,
+        PaymentMethod.NetBanking, PaymentMethod.Wallet, PaymentMethod.Cash
     )
     var expanded by remember { mutableStateOf(false) }
     val currentLabel = current.label.ifEmpty { "Not set" }
@@ -465,9 +463,9 @@ private fun PaymentMethodSelectorCard(
 }
 
 @Composable
-private fun ExcludeFromBudgetCard(
-    excluded: Boolean,
-    onToggle: (Boolean) -> Unit
+private fun BillPaymentCard(
+    marked: Boolean,
+    onMark: (Boolean) -> Unit
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -481,19 +479,20 @@ private fun ExcludeFromBudgetCard(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Card bill payment / transfer",
+                    text = "Credit card bill payment",
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
+                Spacer(Modifier.height(2.dp))
                 Text(
-                    text = "Exclude from spending totals so it isn't double-counted",
+                    text = "Converts to an expense and excludes it from spending — the card purchases are already counted.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             Spacer(Modifier.width(12.dp))
-            Switch(checked = excluded, onCheckedChange = onToggle)
+            Switch(checked = marked, onCheckedChange = onMark)
         }
     }
 }

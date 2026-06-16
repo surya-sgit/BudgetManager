@@ -22,16 +22,20 @@ enum class TransactionType {
 }
 
 enum class PaymentMethod {
-    Card, Upi, NetBanking, Wallet, Cash, Unknown;
+    Card, DebitCard, Upi, NetBanking, Wallet, Cash, Unknown;
 
     /** Short, user-facing label. */
     val label: String
         get() = when (this) {
-            Card -> "Card"
+            Card -> "Credit Card"
+            DebitCard -> "Debit Card"
             Upi -> "UPI"
             NetBanking -> "Net Banking"
             Wallet -> "Wallet"
             Cash -> "Cash"
             Unknown -> ""
         }
+
+    /** Credit-card spend that should count toward a credit card's statement. */
+    val isCreditCard: Boolean get() = this == Card
 }

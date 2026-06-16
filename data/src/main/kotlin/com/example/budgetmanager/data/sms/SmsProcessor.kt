@@ -22,14 +22,24 @@ import javax.inject.Singleton
 class SmsProcessor @Inject constructor(
     private val smsParser: SmsParser,
     private val geminiSmsParser: GeminiSmsParser,
+    private val geminiCategoryClassifier: GeminiCategoryClassifier,
     private val transactionRepository: TransactionRepository,
     private val accountRepository: AccountRepository,
     private val categoryRepository: CategoryRepository,
     private val merchantCategoryRepository: MerchantCategoryRepository,
     private val creditCardRepository: CreditCardRepository
 ) {
-    /** Returns true if a new transaction was recorded from this SMS. */
-    suspend fun processSms(sender: String, smsBody: String, timestamp: Long): Boolean {
+    /**
+     * Returns true if a new transaction was recorded from this SMS.
+     * [useAi] gates the cloud-model fallbacks (parsing + category guess); pass false for bulk
+     * imports so a large inbox scan doesn't fire a burst of API calls.
+     */
+    suspend fun processSms(
+        sender: String,
+        smsBody: String,
+        timestamp: Long,
+        useAi: Boolean = true
+    ): Boolean {
         Log.d("BudgetDebug", "processSms called. Sender: $sender, Body: $smsBody")
 
         // Drop marketing/spam ("Rs 100 wallet credits! 25% OFF, code: …, http://…") — these
@@ -39,11 +49,18 @@ class SmsProcessor @Inject constructor(
             return false
         }
 
+        // Drop bill reminders / payment-due notices ("bill of Rs X is due on …", "total amount
+        // due", "please pay"). They mention an amount but no money has moved — only skip when the
+        // SMS doesn't also describe a completed (debited/spent/credited) transaction.
+        if (isPaymentReminder(smsBody) && !looksSettled(smsBody)) {
+            Log.d("BudgetDebug", "Bill reminder / payment-due notice detected. Skipping.")
+            return false
+        }
+
         var parsedTransaction = smsParser.parse(sender, smsBody, timestamp)
 
-        if (parsedTransaction == null) {
+        if (parsedTransaction == null && useAi) {
             Log.d("BudgetDebug", "Regex failed to parse. Falling back to Gemini AI.")
-            // Fallback to AI
             parsedTransaction = geminiSmsParser.parseWithAi(smsBody, timestamp)
         }
 
@@ -66,8 +83,12 @@ class SmsProcessor @Inject constructor(
         }
 
         // Credit-card bill payments are recorded but flagged so they don't double-count as
-        // spend (the individual card purchases were already counted).
+        // spend (the individual card purchases were already counted). The card-side SMS says
+        // "credited to your card", so force such payments to Expense — paying a bill is never income.
         val billPayment = isCardBillPayment(smsBody)
+        val method = detectPaymentMethod(smsBody)
+        val effectiveType =
+            if (billPayment) TransactionType.Expense else parsedTransaction.transactionType
 
         // 1. Resolve account: match by last-4; if it's a real card/account number we haven't
         // seen, create a dedicated account so transactions group correctly instead of being
@@ -89,10 +110,10 @@ class SmsProcessor @Inject constructor(
         }
 
         // Income shouldn't be filed under a spending category — route it to "Income".
-        val categoryId = if (parsedTransaction.transactionType == TransactionType.Income) {
+        val categoryId = if (effectiveType == TransactionType.Income) {
             incomeCategoryId(categories)
         } else {
-            resolveExpenseCategory(parsedTransaction.merchantName, categories)
+            resolveExpenseCategory(parsedTransaction.merchantName, smsBody, categories, useAi)
         }
         Log.d("BudgetDebug", "Classified category ID: $categoryId")
 
@@ -100,7 +121,7 @@ class SmsProcessor @Inject constructor(
         val transaction = Transaction(
             id = 0,
             amount = parsedTransaction.amount,
-            transactionType = parsedTransaction.transactionType,
+            transactionType = effectiveType,
             categoryId = categoryId,
             merchantName = parsedTransaction.merchantName,
             accountId = account.id,
@@ -109,7 +130,7 @@ class SmsProcessor @Inject constructor(
             sourceSmsHash = sourceHash,
             notes = "",
             userModified = false,
-            paymentMethod = detectPaymentMethod(smsBody),
+            paymentMethod = method,
             excludeFromBudget = billPayment
         )
 
@@ -117,15 +138,15 @@ class SmsProcessor @Inject constructor(
         transactionRepository.insertTransaction(transaction)
         Log.d("BudgetDebug", "Transaction saved successfully.")
 
-        // Auto-register the credit card (by last-4) so it appears under Cards for the user
-        // to finish setting up — but not for a bill-payment SMS (that's not a card spend).
-        if (!billPayment) {
-            maybeRegisterCreditCard(parsedTransaction.accountLast4, smsBody)
+        // Auto-register the credit card (by last-4) so it appears under Cards for the user to
+        // finish setting up. A bare "card" is treated as credit; debit-card spends are excluded.
+        if (!billPayment && method == PaymentMethod.Card) {
+            maybeRegisterCreditCard(parsedTransaction.accountLast4)
         }
 
         // Smart touch: when a salary credit lands, restart the budget cycle so the
         // daily limit recalculates from the new pay date.
-        if (parsedTransaction.transactionType == TransactionType.Income &&
+        if (effectiveType == TransactionType.Income &&
             isLikelySalary(smsBody, parsedTransaction.merchantName)
         ) {
             Log.d("BudgetDebug", "Salary detected — resetting budget cycle start to now.")
@@ -172,15 +193,12 @@ class SmsProcessor @Inject constructor(
     }
 
     /**
-     * Creates a stub credit card for an unseen last-4 when the SMS clearly references a credit
-     * card, so it shows under Cards for the user to complete. Debit-card spends are ignored.
+     * Creates a stub credit card for an unseen last-4 so it shows under Cards for the user to
+     * complete. Called only for credit-card spends (the caller checks the payment method).
      */
-    private suspend fun maybeRegisterCreditCard(last4: String, smsBody: String) {
+    private suspend fun maybeRegisterCreditCard(last4: String) {
         val isRealLast4 = last4.length == 4 && last4.all { it.isDigit() }
         if (!isRealLast4) return
-        val s = smsBody.lowercase()
-        val isCreditCard = (s.contains("credit card") || s.contains("creditcard")) && !s.contains("debit card")
-        if (!isCreditCard) return
 
         val existing = creditCardRepository.getAllCreditCards().firstOrNull() ?: emptyList()
         if (existing.any { it.lastFourDigits == last4 }) return
@@ -222,7 +240,10 @@ class SmsProcessor @Inject constructor(
         val hasVpa = Regex("[a-z0-9.\\-_]{2,}@[a-z]{2,}").containsMatchIn(s)
         return when {
             s.containsAny("upi", "vpa") || hasVpa -> PaymentMethod.Upi
-            s.containsAny("credit card", "debit card", "card ending", "card no", "pos ", "atm", "card xx") -> PaymentMethod.Card
+            s.contains("debit card") -> PaymentMethod.DebitCard
+            // A bare "card" is treated as a credit card (true almost always); the user can
+            // reclassify to Debit Card on the transaction if needed.
+            s.containsAny("credit card", "bank card", "card ending", "card no", "pos ", "atm", "card xx") -> PaymentMethod.Card
             s.containsAny("neft", "imps", "rtgs", "net banking", "netbanking") -> PaymentMethod.NetBanking
             s.containsAny("wallet", "paytm balance") -> PaymentMethod.Wallet
             else -> PaymentMethod.Unknown
@@ -254,6 +275,33 @@ class SmsProcessor @Inject constructor(
         return (hasLink && promoHits >= 1) || promoHits >= 2
     }
 
+    /** True when the SMS is a bill reminder / amount-due notice rather than a completed payment. */
+    private fun isPaymentReminder(smsBody: String): Boolean {
+        val s = smsBody.lowercase()
+        return s.containsAny(
+            "is due", "due on", "due date", "amount due", "total due", "total amount due",
+            "min due", "minimum amount due", "minimum due", "min amt due", "amt due",
+            "payment due", "outstanding", "pay by", "please pay", "kindly pay", "pay now",
+            "to avoid late", "late fee", "late payment", "bill generated", "statement generated",
+            "bill is ready", "e-statement", "will be auto-debited", "will be debited on",
+            "due immediately", "overdue", "make payment"
+        )
+    }
+
+    /** True when the SMS describes a completed (already-happened) debit/credit transaction. */
+    private fun looksSettled(smsBody: String): Boolean {
+        // Drop future-tense phrases so "will be debited" isn't mistaken for a completed debit.
+        val s = smsBody.lowercase()
+            .replace("will be debited", " ")
+            .replace("will be auto-debited", " ")
+            .replace("will be deducted", " ")
+            .replace("to be debited", " ")
+        return s.containsAny(
+            "debited", "spent", "credited", "received", "withdrawn", "deposited",
+            "purchase", "dr.", " dr ", "cr.", " cr "
+        )
+    }
+
     private fun isCardBillPayment(smsBody: String): Boolean {
         val s = smsBody.lowercase()
         return s.containsAny(
@@ -274,14 +322,45 @@ class SmsProcessor @Inject constructor(
     }
 
     /** Expense category resolution: a learned merchant rule wins; otherwise keyword matching. */
-    private suspend fun resolveExpenseCategory(merchant: String, categories: List<Category>): Long {
+    private suspend fun resolveExpenseCategory(
+        merchant: String,
+        smsBody: String,
+        categories: List<Category>,
+        useAi: Boolean
+    ): Long {
         val key = LearnMerchantCategoryUseCase.normalizeMerchant(merchant)
         val learned = merchantCategoryRepository.getCategoryIdForMerchant(key)
         if (learned != null && categories.any { it.id == learned }) {
             Log.d("BudgetDebug", "Using learned category $learned for '$merchant'.")
             return learned
         }
-        return ensureCategoryByName(classifyCategoryName(merchant), categories)
+
+        // Rule-based classification first (instant, offline).
+        val ruleName = classifyCategoryName(merchant, smsBody)
+        if (!ruleName.equals("Other", ignoreCase = true)) {
+            return ensureCategoryByName(ruleName, categories)
+        }
+
+        // During bulk import we don't call the cloud model — leave it as Other for now (a later
+        // live SMS, or a manual reclassify, will categorize and remember the merchant).
+        if (!useAi) return ensureCategoryByName("Other", categories)
+
+        // Rules couldn't place it → ask the cloud model ONCE, then remember the answer so future
+        // SMS from this merchant are classified instantly without another API call.
+        val candidates = (categories.map { it.name } + defaultCategories().map { it.name })
+            .distinct()
+            .filter { !it.equals("Income", ignoreCase = true) }
+        val aiName = geminiCategoryClassifier.classify(merchant, smsBody, candidates)
+        if (aiName != null && !aiName.equals("Other", ignoreCase = true)) {
+            val categoryId = ensureCategoryByName(aiName, categories)
+            if (key.isNotBlank() && categoryId > 0) {
+                merchantCategoryRepository.saveRule(key, categoryId)
+                Log.d("BudgetDebug", "Learned '$merchant' -> $aiName via AI; future SMS won't call AI.")
+            }
+            return categoryId
+        }
+
+        return ensureCategoryByName("Other", categories)
     }
 
     /** Finds the category by name, creating it (e.g. "Groceries" on older DBs) if absent. */
@@ -295,29 +374,39 @@ class SmsProcessor @Inject constructor(
             ?: 0L
     }
 
-    private fun classifyCategoryName(merchantName: String): String {
-        val m = merchantName.lowercase()
+    // Classify using the merchant name AND the full SMS — the brand keyword (SWIGGY, AMAZON…)
+    // is reliably present in the body even when merchant extraction grabs something messy.
+    // Uses whole-word matching so e.g. "lab" doesn't match "available" and "lic" not "click".
+    private fun classifyCategoryName(merchantName: String, smsBody: String): String {
+        val m = "$merchantName $smsBody".lowercase()
         return when {
             // Quick-commerce / groceries — checked first because names overlap with Food/Shopping
-            m.containsAny("instamart", "blinkit", "zepto", "bigbasket", "grofers", "dunzo",
+            m.hasWord("instamart", "blinkit", "zepto", "bigbasket", "grofers", "dunzo",
                 "jiomart", "dmart", "d-mart", "reliance fresh", "more retail", "spencer", "kirana",
-                "grocery", "groceries", "supermart", "supermarket", "country delight", "minutes") -> "Groceries"
-            m.containsAny("swiggy", "zomato", "restaurant", "cafe", "coffee", "food", "pizza",
-                "burger", "biryani", "kitchen", "dhaba", "mcdonald", "kfc", "dominos", "starbucks",
-                "eatery", "bakery") -> "Food"
-            m.containsAny("uber", "ola", "rapido", "irctc", "train", "flight", "indigo",
+                "grocery", "groceries", "supermart", "supermarket", "country delight") -> "Groceries"
+            m.hasWord("swiggy", "zomato", "restaurant", "cafe", "coffee", "food", "pizza",
+                "burger", "biryani", "kitchen", "dhaba", "mcdonald", "kfc", "dominos", "domino's",
+                "starbucks", "eatery", "bakery", "hotel") -> "Food"
+            m.hasWord("uber", "ola", "rapido", "irctc", "train", "flight", "indigo",
                 "spicejet", "airindia", "makemytrip", "goibibo", "redbus", "airways", "airline",
-                "metro", "fuel", "petrol", "fastag", "toll") -> "Travel"
-            m.containsAny("amazon", "flipkart", "myntra", "meesho", "nykaa", "ajio", "snapdeal",
-                "tatacliq", "mall", "retail", "lifestyle", "pantaloons", "westside", "decathlon") -> "Shopping"
-            m.containsAny("netflix", "spotify", "hotstar", "prime video", "zee5", "sonyliv",
-                "youtube", "subscription", "streaming", "bookmyshow", "pvr", "inox") -> "Entertainment"
-            m.containsAny("hospital", "clinic", "pharmacy", "doctor", "apollo", "medplus",
-                "health", "medical", "diagnostic", "lab", "netmeds", "1mg", "pharmeasy") -> "Healthcare"
-            m.containsAny("electricity", "water bill", "gas", "recharge", "broadband", "wifi",
-                "airtel", "jio", "bsnl", "vodafone", "idea", "utility", "insurance", "lic",
+                "fuel", "petrol", "fastag") -> "Travel"
+            m.hasWord("amazon", "flipkart", "myntra", "meesho", "nykaa", "ajio", "snapdeal",
+                "tatacliq", "lifestyle", "pantaloons", "westside", "decathlon", "reliance trends") -> "Shopping"
+            m.hasWord("netflix", "spotify", "hotstar", "prime video", "zee5", "sonyliv",
+                "youtube", "subscription", "bookmyshow", "pvr", "inox") -> "Entertainment"
+            m.hasWord("hospital", "clinic", "pharmacy", "doctor", "apollo", "medplus",
+                "health", "medical", "diagnostic", "netmeds", "1mg", "pharmeasy") -> "Healthcare"
+            m.hasWord("electricity", "water bill", "gas bill", "recharge", "broadband", "wifi",
+                "airtel", "jio", "bsnl", "vodafone", "utility", "insurance", "lic",
                 "postpaid", "prepaid") -> "Utilities"
             else -> "Other"
+        }
+    }
+
+    /** Whole-word keyword match — avoids substring false positives (lab/available, lic/click). */
+    private fun String.hasWord(vararg words: String): Boolean {
+        return words.any { w ->
+            Regex("\\b" + Regex.escape(w.trim()) + "\\b").containsMatchIn(this)
         }
     }
 
