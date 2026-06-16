@@ -13,9 +13,11 @@ import com.example.budgetmanager.core.database.entities.*
         CreditCardEntity::class,
         BudgetEntity::class,
         ExpenseSplitEntity::class,
-        SplitParticipantEntity::class
+        SplitParticipantEntity::class,
+        SavingsGoalEntity::class,
+        MerchantRuleEntity::class
     ],
-    version = 3,
+    version = 9,
     exportSchema = false
 )
 abstract class BudgetDatabase : RoomDatabase() {
@@ -25,4 +27,6 @@ abstract class BudgetDatabase : RoomDatabase() {
     abstract fun creditCardDao(): CreditCardDao
     abstract fun budgetDao(): BudgetDao
     abstract fun expenseSplitDao(): ExpenseSplitDao
+    abstract fun savingsGoalDao(): SavingsGoalDao
+    abstract fun merchantRuleDao(): MerchantRuleDao
 }

@@ -1,5 +1,6 @@
 package com.example.budgetmanager.data.di
 
+import com.example.budgetmanager.data.insights.GeminiInsightsGenerator
 import com.example.budgetmanager.data.repository.*
 import com.example.budgetmanager.domain.repository.*
 import dagger.Binds
@@ -41,4 +42,28 @@ abstract class RepositoryModule {
     abstract fun bindBudgetRepository(
         budgetRepositoryImpl: BudgetRepositoryImpl
     ): BudgetRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindExpenseSplitRepository(
+        expenseSplitRepositoryImpl: ExpenseSplitRepositoryImpl
+    ): ExpenseSplitRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindInsightsRepository(
+        geminiInsightsGenerator: GeminiInsightsGenerator
+    ): InsightsRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindSavingsGoalRepository(
+        savingsGoalRepositoryImpl: SavingsGoalRepositoryImpl
+    ): SavingsGoalRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindMerchantCategoryRepository(
+        merchantCategoryRepositoryImpl: MerchantCategoryRepositoryImpl
+    ): MerchantCategoryRepository
 }

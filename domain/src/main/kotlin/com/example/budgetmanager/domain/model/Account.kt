@@ -7,7 +7,9 @@ data class Account(
     val accountLast4: String,
     val accountType: AccountType,
     val salaryDate: Int = 1,
-    val paymentCycle: PaymentCycle = PaymentCycle.Monthly
+    val paymentCycle: PaymentCycle = PaymentCycle.Monthly,
+    val cycleStartDate: Long = 0L,
+    val cycleDurationDays: Int = 30
 )
 
 enum class AccountType {

@@ -12,5 +12,7 @@ data class AccountEntity(
     val accountLast4: String,
     val accountType: String, // Savings, Current, CreditCard, Wallet
     val salaryDate: Int = 1,
-    val paymentCycle: String = "Monthly"
+    val paymentCycle: String = "Monthly",
+    val cycleStartDate: Long = 0L,
+    val cycleDurationDays: Int = 30
 )

@@ -7,5 +7,6 @@ data class ParsedSmsTransaction(
     val accountLast4: String,
     val timestamp: Long,
     val smsBody: String,
-    val referenceNumber: String? = null
+    val referenceNumber: String? = null,
+    val paymentMethod: PaymentMethod = PaymentMethod.Unknown
 )

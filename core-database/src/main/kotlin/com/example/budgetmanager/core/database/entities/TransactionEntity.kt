@@ -12,13 +12,13 @@ import androidx.room.PrimaryKey
             entity = CategoryEntity::class,
             parentColumns = ["id"],
             childColumns = ["categoryId"],
-            onDelete = ForeignKey.SET_DEFAULT
+            onDelete = ForeignKey.RESTRICT
         ),
         ForeignKey(
             entity = AccountEntity::class,
             parentColumns = ["id"],
             childColumns = ["accountId"],
-            onDelete = ForeignKey.CASCADE
+            onDelete = ForeignKey.RESTRICT
         )
     ],
     indices = [Index("categoryId"), Index("accountId")]
@@ -35,5 +35,7 @@ data class TransactionEntity(
     val smsBody: String,
     val sourceSmsHash: String,
     val notes: String = "",
-    val userModified: Boolean = false
+    val userModified: Boolean = false,
+    val paymentMethod: String = "Unknown",
+    val excludeFromBudget: Boolean = false
 )

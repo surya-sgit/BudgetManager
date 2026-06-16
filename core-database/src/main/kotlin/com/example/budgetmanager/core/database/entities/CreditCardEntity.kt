@@ -13,5 +13,7 @@ data class CreditCardEntity(
     val currentSpend: Double,
     val statementBalance: Double,
     val billingDate: Int,
-    val dueDate: Int
+    val dueDate: Int,
+    val lastFourDigits: String = "",
+    val needsSetup: Boolean = false
 )

@@ -1,7 +1,9 @@
 package com.example.budgetmanager
 
 import android.Manifest
+import android.os.Build
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -34,8 +36,13 @@ class MainActivity : ComponentActivity() {
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
-        if (permissions[Manifest.permission.RECEIVE_SMS] == true) {
-            // Permission granted
+        val smsGranted = permissions[Manifest.permission.RECEIVE_SMS] == true
+        if (!smsGranted) {
+            Toast.makeText(
+                this,
+                "SMS permission denied — automatic transaction tracking is disabled. Grant it in App Settings to enable.",
+                Toast.LENGTH_LONG
+            ).show()
         }
     }
 
@@ -117,10 +124,13 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun checkSmsPermissions() {
-        val permissionsNeeded = arrayOf(
+        val permissionsNeeded = mutableListOf(
             Manifest.permission.RECEIVE_SMS,
             Manifest.permission.READ_SMS
         )
-        requestPermissionLauncher.launch(permissionsNeeded)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissionsNeeded.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        requestPermissionLauncher.launch(permissionsNeeded.toTypedArray())
     }
 }

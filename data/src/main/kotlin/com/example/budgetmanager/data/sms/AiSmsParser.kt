@@ -4,7 +4,6 @@ import android.util.Log
 import com.example.budgetmanager.domain.model.ParsedSmsTransaction
 import com.example.budgetmanager.domain.model.TransactionType
 import com.google.ai.client.generativeai.GenerativeModel
-import com.google.ai.client.generativeai.type.content
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
@@ -28,7 +27,6 @@ class GeminiSmsParser @Inject constructor(
     private val json = Json { ignoreUnknownKeys = true }
 
     suspend fun parseWithAi(smsBody: String, timestamp: Long): ParsedSmsTransaction? {
-        Log.d("BudgetDebug", "API Key starts with: ${apiKey.take(4)}")
         val prompt = """
             Extract transaction details from this SMS: "$smsBody".
             Respond with a strict JSON object containing:
@@ -41,7 +39,6 @@ class GeminiSmsParser @Inject constructor(
         return try {
             val response = model.generateContent(prompt)
             val jsonText = response.text?.replace("```json", "")?.replace("```", "")?.trim() ?: return null
-            Log.d("BudgetDebug", "Gemini raw response: $jsonText")
             val geminiResponse = json.decodeFromString<GeminiTransactionResponse>(jsonText)
             
             ParsedSmsTransaction(

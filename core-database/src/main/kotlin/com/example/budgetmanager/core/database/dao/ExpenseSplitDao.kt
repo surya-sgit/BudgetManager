@@ -16,6 +16,9 @@ interface ExpenseSplitDao {
     @Update
     suspend fun updateParticipant(participant: SplitParticipantEntity)
 
+    @Query("UPDATE split_participants SET status = :status WHERE id = :participantId")
+    suspend fun updateParticipantStatus(participantId: Long, status: String)
+
     @Transaction
     @Query("SELECT * FROM expense_splits WHERE transactionId = :transactionId")
     fun getSplitWithParticipants(transactionId: Long): Flow<SplitWithParticipants?>

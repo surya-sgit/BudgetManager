@@ -13,7 +13,9 @@ fun AccountEntity.toDomain(): Account {
         accountLast4 = accountLast4,
         accountType = AccountType.valueOf(accountType),
         salaryDate = salaryDate,
-        paymentCycle = PaymentCycle.valueOf(paymentCycle)
+        paymentCycle = PaymentCycle.valueOf(paymentCycle),
+        cycleStartDate = cycleStartDate,
+        cycleDurationDays = cycleDurationDays
     )
 }
 
@@ -25,6 +27,8 @@ fun Account.toEntity(): AccountEntity {
         accountLast4 = accountLast4,
         accountType = accountType.name,
         salaryDate = salaryDate,
-        paymentCycle = paymentCycle.name
+        paymentCycle = paymentCycle.name,
+        cycleStartDate = cycleStartDate,
+        cycleDurationDays = cycleDurationDays
     )
 }

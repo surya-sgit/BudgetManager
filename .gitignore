@@ -1,26 +1,93 @@
-# Gradle files
+# ============================================================
+# Gradle
+# ============================================================
 .gradle/
 build/
 /*/build/
+**/build/
+gradle-app.setting
+!gradle-wrapper.jar
+!gradle-wrapper.properties
+.gradletasknamecache
 
-# IntelliJ IDEA files
+# ============================================================
+# Android build outputs
+# ============================================================
+*.apk
+*.aab
+*.aar
+*.ap_
+*.dex
+*.class
+bin/
+gen/
+out/
+release/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# ============================================================
+# Local configuration & secrets — DO NOT COMMIT
+# ============================================================
+local.properties
+secrets.properties
+keystore.properties
+signing.properties
+*.jks
+*.keystore
+google-services.json
+*.gpg
+
+# ============================================================
+# IDE — Android Studio / IntelliJ
+# ============================================================
 .idea/
 *.iml
 *.iws
+*.ipr
+.navigation/
+misc.xml
 
-# Android Studio files
-local.properties
-.externalNativeBuild/
-.cxx/
-captures/
+# ============================================================
+# IDE — VS Code / Eclipse
+# ============================================================
+.vscode/
+.classpath
+.project
+.settings/
 
-# Device/OS specific files
+# ============================================================
+# OS-generated files
+# ============================================================
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
+desktop.ini
 
-# Secrets/API keys (good practice)
-# secrets.properties
-# google-services.json
-
-# Logs
+# ============================================================
+# Logs & temp
+# ============================================================
 *.log
+*.tmp
+*.bak
+*.swp
+*~
+
+# ============================================================
+# Kotlin / KAPT / native
+# ============================================================
+.kotlin/
+*.hprof
+hs_err_pid*
+
+# ============================================================
+# Testing & coverage
+# ============================================================
+/test-results/
+/reports/
+lint-results*.xml

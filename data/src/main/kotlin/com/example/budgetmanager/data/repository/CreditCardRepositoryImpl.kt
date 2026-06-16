@@ -39,7 +39,9 @@ class CreditCardRepositoryImpl @Inject constructor(
         currentSpend = currentSpend,
         statementBalance = statementBalance,
         billingDate = billingDate,
-        dueDate = dueDate
+        dueDate = dueDate,
+        lastFourDigits = lastFourDigits,
+        needsSetup = needsSetup
     )
 
     private fun CreditCard.toEntity() = CreditCardEntity(
@@ -50,6 +52,8 @@ class CreditCardRepositoryImpl @Inject constructor(
         currentSpend = currentSpend,
         statementBalance = statementBalance,
         billingDate = billingDate,
-        dueDate = dueDate
+        dueDate = dueDate,
+        lastFourDigits = lastFourDigits,
+        needsSetup = needsSetup
     )
 }

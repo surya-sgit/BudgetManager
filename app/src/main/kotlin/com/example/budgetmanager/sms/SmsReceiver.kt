@@ -19,14 +19,12 @@ class SmsReceiver : BroadcastReceiver() {
     @Inject
     lateinit var smsProcessor: SmsProcessor
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Telephony.Sms.Intents.SMS_RECEIVED_ACTION) {
             val pendingResult = goAsync()
             val messages = Telephony.Sms.Intents.getMessagesFromIntent(intent)
-            
-            scope.launch {
+            // Scope is local — it goes out of reference once the coroutine finishes
+            CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
                 try {
                     for (message in messages) {
                         val sender = message.displayOriginatingAddress ?: "Unknown"

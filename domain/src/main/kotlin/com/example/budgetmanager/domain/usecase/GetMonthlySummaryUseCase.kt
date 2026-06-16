@@ -22,10 +22,9 @@ class GetMonthlySummaryUseCase @Inject constructor(
         calendar.set(Calendar.SECOND, 0)
         calendar.set(Calendar.MILLISECOND, 0)
         val startTime = calendar.timeInMillis
-        
-        // Use a very large end time to ensure all future transactions in the current month are captured
-        // even if the ViewModel remains active for a long time.
-        calendar.add(Calendar.YEAR, 1)
+
+        // End of current month = midnight on 1st of next month
+        calendar.add(Calendar.MONTH, 1)
         val endTime = calendar.timeInMillis
 
         return combine(

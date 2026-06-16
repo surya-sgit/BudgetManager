@@ -56,8 +56,10 @@ class BankSmsParser : SmsParser {
                     TransactionType.Expense
                 }
 
-                // Extract account last 4 (generic regex)
-                val accountMatcher = Pattern.compile("(?i)(?:acct|card|a/c|ending|xx)(\\d{3,4})", Pattern.CASE_INSENSITIVE).matcher(smsBody)
+                // Extract last 4 digits of account/card — require keyword prefix to avoid matching amounts
+                val accountMatcher = Pattern.compile(
+                    "(?i)(?:acct|card|a/c|account|ending|xx)\\s*(?:no\\.?\\s*)?[xX*]{0,4}(\\d{4})\\b"
+                ).matcher(smsBody)
                 val accountLast4 = if (accountMatcher.find()) accountMatcher.group(1) ?: "0000" else "0000"
 
                 return ParsedSmsTransaction(

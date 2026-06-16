@@ -8,6 +8,7 @@ interface TransactionRepository {
     suspend fun updateTransaction(transaction: Transaction)
     suspend fun deleteTransaction(transaction: Transaction)
     suspend fun getTransactionById(id: Long): Transaction?
+    suspend fun existsBySourceHash(hash: String): Boolean
     fun getAllTransactions(): Flow<List<Transaction>>
     fun getTransactionsByAccount(accountId: Long): Flow<List<Transaction>>
     fun getTransactionsByCategory(categoryId: Long): Flow<List<Transaction>>

@@ -28,6 +28,10 @@ class TransactionRepositoryImpl @Inject constructor(
         return transactionDao.getTransactionById(id)?.toDomain()
     }
 
+    override suspend fun existsBySourceHash(hash: String): Boolean {
+        return transactionDao.countBySourceHash(hash) > 0
+    }
+
     override fun getAllTransactions(): Flow<List<Transaction>> {
         return transactionDao.getAllTransactions().map { list -> list.map { it.toDomain() } }
     }

@@ -1,6 +1,7 @@
 package com.example.budgetmanager.data.mapper
 
 import com.example.budgetmanager.core.database.entities.TransactionEntity
+import com.example.budgetmanager.domain.model.PaymentMethod
 import com.example.budgetmanager.domain.model.Transaction
 import com.example.budgetmanager.domain.model.TransactionType
 
@@ -16,7 +17,9 @@ fun TransactionEntity.toDomain(): Transaction {
         smsBody = smsBody,
         sourceSmsHash = sourceSmsHash,
         notes = notes,
-        userModified = userModified
+        userModified = userModified,
+        paymentMethod = runCatching { PaymentMethod.valueOf(paymentMethod) }.getOrDefault(PaymentMethod.Unknown),
+        excludeFromBudget = excludeFromBudget
     )
 }
 
@@ -32,6 +35,8 @@ fun Transaction.toEntity(): TransactionEntity {
         smsBody = smsBody,
         sourceSmsHash = sourceSmsHash,
         notes = notes,
-        userModified = userModified
+        userModified = userModified,
+        paymentMethod = paymentMethod.name,
+        excludeFromBudget = excludeFromBudget
     )
 }

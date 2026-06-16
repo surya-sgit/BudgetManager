@@ -27,7 +27,13 @@ class CreditCardReminderWorker @AssistedInject constructor(
         val currentDay = calendar.get(Calendar.DAY_OF_MONTH)
 
         cards.forEach { card ->
-            val daysUntilDue = card.dueDate - currentDay
+            val daysInMonth = calendar.getActualMaximum(Calendar.DAY_OF_MONTH)
+            val daysUntilDue = if (card.dueDate >= currentDay) {
+                card.dueDate - currentDay
+            } else {
+                // Due date is in the next month
+                (daysInMonth - currentDay) + card.dueDate
+            }
             if (daysUntilDue in listOf(7, 3, 1)) {
                 showNotification(card.cardName, daysUntilDue)
             }
