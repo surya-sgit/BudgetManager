@@ -82,13 +82,17 @@ class SmsProcessor @Inject constructor(
             return false
         }
 
-        // Credit-card bill payments are recorded but flagged so they don't double-count as
-        // spend (the individual card purchases were already counted). The card-side SMS says
-        // "credited to your card", so force such payments to Expense — paying a bill is never income.
         val billPayment = isCardBillPayment(smsBody)
         val method = detectPaymentMethod(smsBody)
-        val effectiveType =
-            if (billPayment) TransactionType.Expense else parsedTransaction.transactionType
+
+        // A card-bill payment produces two SMS for ONE payment: the bank debit ("Sent Rs X to
+        // CRED") and the recipient's confirmation ("Rs X received towards your credit card").
+        // The confirmation is the income-side notification — skip it so the same payment isn't
+        // recorded twice; the bank-debit SMS is kept as the real (excluded) record.
+        if (billPayment && parsedTransaction.transactionType == TransactionType.Income) {
+            Log.d("BudgetDebug", "Payment confirmation/receipt — skipping (duplicate of the bank debit).")
+            return false
+        }
 
         // 1. Resolve account: match by last-4; if it's a real card/account number we haven't
         // seen, create a dedicated account so transactions group correctly instead of being
@@ -110,10 +114,11 @@ class SmsProcessor @Inject constructor(
         }
 
         // Income shouldn't be filed under a spending category — route it to "Income".
-        val categoryId = if (effectiveType == TransactionType.Income) {
+        // Bill payments are excluded from spending, so don't spend an AI call classifying them.
+        val categoryId = if (parsedTransaction.transactionType == TransactionType.Income) {
             incomeCategoryId(categories)
         } else {
-            resolveExpenseCategory(parsedTransaction.merchantName, smsBody, categories, useAi)
+            resolveExpenseCategory(parsedTransaction.merchantName, smsBody, categories, useAi && !billPayment)
         }
         Log.d("BudgetDebug", "Classified category ID: $categoryId")
 
@@ -121,7 +126,7 @@ class SmsProcessor @Inject constructor(
         val transaction = Transaction(
             id = 0,
             amount = parsedTransaction.amount,
-            transactionType = effectiveType,
+            transactionType = parsedTransaction.transactionType,
             categoryId = categoryId,
             merchantName = parsedTransaction.merchantName,
             accountId = account.id,
@@ -146,7 +151,7 @@ class SmsProcessor @Inject constructor(
 
         // Smart touch: when a salary credit lands, restart the budget cycle so the
         // daily limit recalculates from the new pay date.
-        if (effectiveType == TransactionType.Income &&
+        if (parsedTransaction.transactionType == TransactionType.Income &&
             isLikelySalary(smsBody, parsedTransaction.merchantName)
         ) {
             Log.d("BudgetDebug", "Salary detected — resetting budget cycle start to now.")
@@ -279,12 +284,15 @@ class SmsProcessor @Inject constructor(
     private fun isPaymentReminder(smsBody: String): Boolean {
         val s = smsBody.lowercase()
         return s.containsAny(
-            "is due", "due on", "due date", "amount due", "total due", "total amount due",
+            "is due", "due on", "due date", "due by", "amount due", "total due", "total amount due",
             "min due", "minimum amount due", "minimum due", "min amt due", "amt due",
             "payment due", "outstanding", "pay by", "please pay", "kindly pay", "pay now",
             "to avoid late", "late fee", "late payment", "bill generated", "statement generated",
             "bill is ready", "e-statement", "will be auto-debited", "will be debited on",
-            "due immediately", "overdue", "make payment"
+            "due immediately", "overdue", "make payment",
+            // Bill-generated notices (e.g. Airtel/utility) — a statement, not a payment.
+            "has been generated", "bill for your", "payable amount", "amount payable",
+            "bill summary", "bill breakup", "view bill", "current month payable"
         )
     }
 
@@ -305,6 +313,7 @@ class SmsProcessor @Inject constructor(
     private fun isCardBillPayment(smsBody: String): Boolean {
         val s = smsBody.lowercase()
         return s.containsAny(
+            // Credit-card bill payments
             "towards your credit card",
             "towards your card",
             "towards card ending",
@@ -317,7 +326,17 @@ class SmsProcessor @Inject constructor(
             "credit card bill",
             "card bill payment",
             "payment towards your card",
-            "cc bill payment"
+            "cc bill payment",
+            // Bill/biller payment confirmations — a recipient confirming money YOU paid (not income)
+            "we have received a payment",
+            "received a payment for",
+            "payment received for your",
+            "received your payment",
+            // CRED is used almost exclusively to pay credit-card bills; a payment to it is a bill payment.
+            "cred club",
+            "credclub",
+            "cred.club",
+            "to cred "
         )
     }
 

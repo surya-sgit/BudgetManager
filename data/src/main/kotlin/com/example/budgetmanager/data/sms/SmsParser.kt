@@ -23,7 +23,10 @@ interface SmsParser {
  */
 class BankSmsParser : SmsParser {
 
-    private val debitWords = listOf("debited", "spent", "paid", "withdrawn", "purchase", "dr.", " dr ")
+    private val debitWords = listOf(
+        "debited", "spent", "paid", "withdrawn", "purchase", "dr.", " dr ",
+        "sent", "transferred", "deducted", "charged"
+    )
     private val creditWords = listOf("credited", "received", "deposited", "refund", "cr.", " cr ")
 
     // "Avl Limit: INR X", "AvlBal:Rs X", "Available Balance Rs X", "Bal: Rs X" …
@@ -32,7 +35,7 @@ class BankSmsParser : SmsParser {
     )
     private val amount = Pattern.compile("(?i)(?:rs|inr)\\.?\\s*([\\d,]+(?:\\.\\d{1,2})?)")
     private val account = Pattern.compile(
-        "(?i)(?:acct|card|a/c|account|ending|xx)\\s*(?:no\\.?\\s*)?[xX*]{0,4}(\\d{4})\\b"
+        "(?i)(?:acct|card|a/c|account|ending|xx)\\s*(?:ending\\s*)?(?:with\\s*)?(?:no\\.?\\s*)?[xX*]{0,4}(\\d{4})\\b"
     )
     private val vpa = Pattern.compile("[A-Za-z0-9.\\-_]{2,}@[A-Za-z]{2,}")
     private val merchantPrefix = Pattern.compile(
